@@ -1,0 +1,141 @@
+version: '3.5'
+services:
+  grafana:
+    image: grafana/grafana:9.4.1-ubuntu
+    container_name: grafana
+    ports:
+      - 80
+    restart: unless-stopped
+    depends_on:
+      - grafana_mysql
+    volumes:
+    - ./data/grafana/data:/var/lib/grafana
+    - ./data/datasources:/etc/grafana/provisioning/datasources
+    - ./data/grafana/grafana.ini:/etc/grafana/grafana.ini
+    networks:
+      - monitor
+
+  grafana_mysql:
+    image: mysql:8.0.35
+    platform: linux/amd64
+    container_name: grafana_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: 89DTguisSRFSDs
+      MYSQL_DATABASE: grafana
+      MYSQL_USER: grafana
+      MYSQL_PASSWORD: 89DTguisSRFSDs
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - '3306:3306'
+    volumes:
+      - ./data/mysql/data:/var/lib/mysql
+      - ./data/mysql/my.cnf:/etc/my.cnf
+      - ./data/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - monitor
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  blackbox:
+    image: prom/blackbox-exporter
+    container_name: blackbox
+    restart: unless-stopped
+    volumes:
+     - ./data/blackbox/config.yml:/etc/blackbox_exporter/config.yml
+    privileged: true
+    ports:
+     - 9115
+    networks:
+      - monitor
+
+  prometheus:
+    image: prom/prometheus:v2.42.0
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+     - ./data/prometheus/data:/prometheus
+     - ./data/prometheus:/etc/prometheus
+       #- ./data/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command: "--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus"
+    ports:
+      - "9090:9090"
+    depends_on:
+      - blackbox
+      - alertmanager
+    networks:
+      - monitor
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    restart: unless-stopped
+    volumes:
+      - ./data/alertmanager/config.yml:/etc/alertmanager/config.yml
+      - ./data/alertmanager/config.yml:/etc/alertmanager/alertmanager.yml
+    network_mode: host
+
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: pushgateway
+    ports:
+      - "9091:9091"
+    restart: unless-stopped
+    networks:
+      - monitor
+
+  nginx:
+    image: nginx
+    container_name: nginx
+    restart: always
+    volumes:
+     - ./data/nginx/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+     - 80:80
+     - 443:443
+    depends_on:
+      - grafana
+      - prometheus
+    networks:
+      - monitor
+
+  node-exporter:
+    image: prom/node-exporter:v1.5.0
+    container_name: node-exporter
+    restart: always
+    network_mode: host
+    pid: host
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - "/:/host:ro,rslave"
+      - "/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket"
+    command:
+      - "--path.rootfs=/host"
+      - "--web.listen-address=0.0.0.0:9101"
+      - "--collector.processes"
+      - "--collector.systemd"
+
+  mysql-exporter:
+    container_name: mysql-exporter
+    image: prom/mysqld-exporter
+    network_mode: host
+    restart: always
+    volumes:
+      - /etc/hosts:/etc/hosts:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ./.my.cnf:/etc/.my.cnf:ro
+    command:
+      - "--web.listen-address=0.0.0.0:9201"
+      - "--config.my-cnf=/etc/.my.cnf"
+
+networks:
+  monitor:
+    name: monitor
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.11.0/24
