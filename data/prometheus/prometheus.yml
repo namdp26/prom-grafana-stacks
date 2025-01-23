@@ -7,20 +7,20 @@ scrape_configs:
 ### Node-exporter scrape
   - job_name: node_exporter  
     static_configs:
-     - targets: ['10.110.89.27:9101']
+     - targets: ['192.168.1.1:9101']
     relabel_configs:
       - source_labels: [__address__]
         regex: '.*'
         target_label: instance
-        replacement: 'grafana(10.110.89.27)'
+        replacement: 'grafana(192.168.1.1)'
   - job_name: mysql_exporter 
     static_configs:
-     - targets: ['10.110.89.27:9201']
+     - targets: ['192.168.1.1:9201']
     relabel_configs:
       - source_labels: [__address__]
         regex: '.*'
         target_label: instance
-        replacement: 'mysql(10.110.89.27)'
+        replacement: 'mysql(192.168.1.1)'
 ## Blackbox exporter look for HTTP 200 status response
   - job_name: 'blackbox'
     metrics_path: /probe
@@ -44,6 +44,6 @@ scrape_configs:
 alerting:
   alertmanagers:
     - static_configs:
-        - targets: ["10.110.89.27:9093"]
+        - targets: ["192.168.1.1:9093"]
 rule_files:
       - "rules.yml"

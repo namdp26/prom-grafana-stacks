@@ -11,7 +11,7 @@
 
 - docker and docker-compose installation on machine.
 - .env & .my.cnf config file for mysql credentials.
-- Update the correct IP in config file form example 10.110.89.27 to your IP.
+- Update the correct IP in config file form example 192.168.1.1 to your IP.
 - Update the hostname or point the DNS in the ./data/grafana/grafana.ini
 ## Update folder and files permissions
 
